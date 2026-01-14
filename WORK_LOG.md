@@ -134,6 +134,15 @@ devhub restore <tool>             # 恢复默认配置
 - 代码已推送到 GitHub 和 Gitee
 - Release 构建成功，二进制文件 4.4MB
 
+### 前端重构 (Arco Design)
+- 安装 Arco Design (字节跳动 UI 框架)
+- 左侧栏导航设计，深色主题
+- 表格式镜像源列表，支持测速排序
+- 添加"一键最快"功能
+- 添加 Maven/Gradle 一键同步功能
+- 优化颜色搭配和交互体验
+- GUI 构建成功
+
 ---
 
 ## 下一步计划 (等待用户确认)

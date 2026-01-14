@@ -1,42 +1,16 @@
 {
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "DevHub Pro",
+  "version": "0.1.0",
+  "identifier": "com.devhub.pro",
   "build": {
-    "distDir": "frontend/dist",
-    "devPath": "http://localhost:5173",
+    "frontendDist": "frontend/dist",
+    "devUrl": "http://localhost:5173",
     "beforeDevCommand": "cd frontend && npm run dev",
-    "beforeBuildCommand": "cd frontend && npm run build"
+    "beforeBuildCommand": "cd frontend && npm run build",
+    "features": ["gui"]
   },
-  "package": {
-    "productName": "DevHub Pro",
-    "version": "0.1.0"
-  },
-  "tauri": {
-    "allowlist": {
-      "all": false,
-      "shell": {
-        "all": false,
-        "open": true
-      },
-      "dialog": {
-        "all": false,
-        "ask": true,
-        "confirm": true,
-        "message": true,
-        "open": true,
-        "save": true
-      }
-    },
-    "bundle": {
-      "active": true,
-      "targets": "all",
-      "identifier": "com.devhub.pro",
-      "icon": []
-    },
-    "security": {
-      "csp": null
-    },
-    "updater": {
-      "active": false
-    },
+  "app": {
     "windows": [
       {
         "title": "DevHub Pro",
@@ -46,10 +20,16 @@
         "minHeight": 500,
         "resizable": true,
         "fullscreen": false,
-        "decorations": true,
-        "transparent": false,
         "center": true
       }
-    ]
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.png"]
   }
 }

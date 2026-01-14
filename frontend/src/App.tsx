@@ -173,18 +173,12 @@ function App() {
   const [versionUpdate, setVersionUpdate] = useState<VersionUpdateInfo | null>(null)
   const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null)
 
-  // 加载系统信息和工具信息
+  // 只加载系统信息（不加载所有工具信息，改为懒加载）
   useEffect(() => {
     const loadSystemData = async () => {
       try {
-        const [sysInfo, allToolsInfo] = await Promise.all([
-          invoke<SystemInfo>('get_system_info'),
-          invoke<ToolInfo[]>('get_all_tools_info'),
-        ])
+        const sysInfo = await invoke<SystemInfo>('get_system_info')
         setSystemInfo(sysInfo)
-        const infoMap = new Map<string, ToolInfo>()
-        allToolsInfo.forEach(t => infoMap.set(t.name, t))
-        setToolsInfo(infoMap)
       } catch (error) {
         console.error('Failed to load system info:', error)
       }
@@ -195,14 +189,9 @@ function App() {
   useEffect(() => {
     const tools = TOOL_MAP[currentTab]
     if (tools.length > 0) {
-      // 找第一个支持的工具
-      const supportedTool = tools.find(t => {
-        const info = toolsInfo.get(t)
-        return !info || info.supported_on_current_os
-      })
-      setCurrentTool(supportedTool || tools[0])
+      setCurrentTool(tools[0])
     }
-  }, [currentTab, toolsInfo])
+  }, [currentTab])
 
   useEffect(() => {
     loadToolData()
@@ -211,32 +200,42 @@ function App() {
   const loadToolData = async () => {
     if (!currentTool) return
 
-    const info = toolsInfo.get(currentTool)
-    if (info && !info.supported_on_current_os) {
-      setMirrors([])
-      setCurrentStatus(null)
-      setVersionManager(null)
-      setVersionUpdate(null)
-      setConflictInfo(null)
-      return
-    }
-
     setLoading(true)
     const savedResults = getSpeedResults(currentTool)
     setSpeedResults(savedResults)
+
     try {
-      const [mirrorList, status, vmInfo, updateInfo, conflict] = await Promise.all([
-        invoke<Mirror[]>('list_mirrors', { name: currentTool }),
-        invoke<ToolStatus>('get_tool_status', { name: currentTool }),
-        invoke<VersionManagerInfo | null>('get_version_manager_info', { tool: currentTool }),
-        invoke<VersionUpdateInfo | null>('check_version_update', { tool: currentTool }),
-        invoke<ConflictInfo>('check_tool_conflict', { tool: currentTool }),
+      // 并行加载所有数据，提高性能
+      const [toolInfo, mirrorList, status, vmInfo, updateInfo, conflict] = await Promise.all([
+        invoke<ToolInfo>('get_tool_info', { name: currentTool }),
+        invoke<Mirror[]>('list_mirrors', { name: currentTool }).catch(() => []),
+        invoke<ToolStatus>('get_tool_status', { name: currentTool }).catch(() => null),
+        invoke<VersionManagerInfo | null>('get_version_manager_info', { tool: currentTool }).catch(() => null),
+        invoke<VersionUpdateInfo | null>('check_version_update', { tool: currentTool }).catch(() => null),
+        invoke<ConflictInfo>('check_tool_conflict', { tool: currentTool }).catch(() => null),
       ])
-      setMirrors(mirrorList)
-      setCurrentStatus(status)
-      setVersionManager(vmInfo)
-      setVersionUpdate(updateInfo)
-      setConflictInfo(conflict)
+
+      // 更新工具信息缓存
+      setToolsInfo(prev => {
+        const newMap = new Map(prev)
+        newMap.set(currentTool, toolInfo)
+        return newMap
+      })
+
+      // 检查是否支持当前系统
+      if (!toolInfo.supported_on_current_os) {
+        setMirrors([])
+        setCurrentStatus(null)
+        setVersionManager(null)
+        setVersionUpdate(null)
+        setConflictInfo(null)
+      } else {
+        setMirrors(mirrorList)
+        setCurrentStatus(status)
+        setVersionManager(vmInfo)
+        setVersionUpdate(updateInfo)
+        setConflictInfo(conflict)
+      }
     } catch (error) {
       Message.error(`加载失败: ${error}`)
     } finally {
@@ -329,13 +328,16 @@ function App() {
   const handleInstallTool = async (tool: string) => {
     Message.loading({ content: `正在安装 ${tool}...`, duration: 0, id: 'install' })
     try {
-      const result = await invoke<string>('install_tool', { name: tool })
+      // 使用异步安装避免 UI 卡顿
+      const result = await invoke<string>('install_tool_async', { name: tool })
       Message.success({ content: result, id: 'install' })
       // 重新加载工具信息
-      const allToolsInfo = await invoke<ToolInfo[]>('get_all_tools_info')
-      const infoMap = new Map<string, ToolInfo>()
-      allToolsInfo.forEach(t => infoMap.set(t.name, t))
-      setToolsInfo(infoMap)
+      const toolInfo = await invoke<ToolInfo>('get_tool_info', { name: tool })
+      setToolsInfo(prev => {
+        const newMap = new Map(prev)
+        newMap.set(tool, toolInfo)
+        return newMap
+      })
       loadToolData()
     } catch (error) {
       Message.error({ content: `安装失败: ${error}`, id: 'install' })
@@ -343,14 +345,41 @@ function App() {
   }
 
   const handleSyncJavaHome = async () => {
+    if (!versionManager) return
+
     try {
-      await invoke('sync_java_home')
-      Message.success('已同步 JAVA_HOME')
+      const result = await invoke<string>('sync_java_home', {
+        targetVersion: versionManager.current_version
+      })
+      Message.success(result)
       // 重新加载版本信息
       const vmInfo = await invoke<VersionManagerInfo | null>('get_version_manager_info', { tool: currentTool })
       setVersionManager(vmInfo)
+      // 重新检测冲突
+      const conflict = await invoke<ConflictInfo>('check_tool_conflict', { tool: currentTool })
+      setConflictInfo(conflict)
     } catch (error) {
       Message.error(`同步失败: ${error}`)
+    }
+  }
+
+  const handleUninstallSource = async (tool: string, source: string) => {
+    Message.loading({ content: `正在从 ${source} 卸载 ${tool}...`, duration: 0, id: 'uninstall' })
+    try {
+      const result = await invoke<string>('uninstall_from_source', { tool, source })
+      Message.success({ content: result, id: 'uninstall' })
+      // 重新检测冲突
+      const conflict = await invoke<ConflictInfo>('check_tool_conflict', { tool: currentTool })
+      setConflictInfo(conflict)
+      // 重新加载工具信息
+      const toolInfo = await invoke<ToolInfo>('get_tool_info', { name: tool })
+      setToolsInfo(prev => {
+        const newMap = new Map(prev)
+        newMap.set(tool, toolInfo)
+        return newMap
+      })
+    } catch (error) {
+      Message.error({ content: `卸载失败: ${error}`, id: 'uninstall' })
     }
   }
 
@@ -563,10 +592,22 @@ function App() {
             type="error"
             icon={<IconExclamationCircle />}
             content={
-              <Space direction="vertical" size="mini">
+              <Space direction="vertical" size="small">
                 <span>{conflictInfo.warning_message}</span>
+                <Space wrap>
+                  {conflictInfo.sources.map((s, index) => (
+                    <Tag
+                      key={index}
+                      color={s.manager === 'system' ? 'gray' : 'orange'}
+                      closable={s.manager !== 'system' && s.manager !== 'manual'}
+                      onClose={() => handleUninstallSource(currentTool, s.manager)}
+                    >
+                      {s.manager}: {s.path.length > 30 ? `...${s.path.slice(-30)}` : s.path}
+                    </Tag>
+                  ))}
+                </Space>
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  安装来源: {conflictInfo.sources.map(s => `${s.manager} (${s.path})`).join(' / ')}
+                  点击 × 可卸载对应来源
                 </Text>
               </Space>
             }
@@ -621,12 +662,17 @@ function App() {
           <Alert
             type="warning"
             content={
-              <Space>
+              <Space direction="vertical" size="mini">
                 <span>{versionManager.inconsistency_message}</span>
-                {versionManager.manager_name === 'jenv' && (
-                  <Button size="mini" type="outline" onClick={handleSyncJavaHome}>
-                    同步 JAVA_HOME
-                  </Button>
+                {versionManager.manager_name === 'jenv' && versionManager.current_version && (
+                  <Space>
+                    <Text type="secondary">
+                      将 JAVA_HOME 同步为 jenv 当前版本: <Text bold>{versionManager.current_version}</Text>
+                    </Text>
+                    <Button size="mini" type="primary" onClick={handleSyncJavaHome}>
+                      立即同步
+                    </Button>
+                  </Space>
                 )}
               </Space>
             }

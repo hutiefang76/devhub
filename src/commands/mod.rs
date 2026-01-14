@@ -997,7 +997,7 @@ fn check_install_source(tool: &str, manager: &str) -> Option<InstallSource> {
 }
 
 // 获取工具在各包管理器中的名称
-fn get_package_name(tool: &str, manager: &str) -> &str {
+fn get_package_name<'a>(tool: &'a str, manager: &str) -> &'a str {
     match (tool, manager) {
         ("pip", "brew") => "python",
         ("pip", "apt") => "python3-pip",
@@ -1120,20 +1120,132 @@ pub fn check_all_conflicts() -> Vec<ConflictInfo> {
         .collect()
 }
 
-#[tauri::command]
-pub fn sync_java_home() -> Result<String, String> {
-    // 获取当前 jenv 版本
-    let output = Command::new("sh")
-        .arg("-c")
-        .arg("jenv version-name 2>/dev/null")
-        .output()
-        .map_err(|e| format!("获取 jenv 版本失败: {}", e))?;
+// ============================================
+// 卸载冲突源功能
+// ============================================
 
-    if !output.status.success() {
-        return Err("jenv 未安装或未配置".to_string());
+#[tauri::command]
+pub async fn uninstall_from_source(tool: String, source: String) -> Result<String, String> {
+    let os = if cfg!(target_os = "macos") {
+        "macos"
+    } else if cfg!(target_os = "linux") {
+        "linux"
+    } else {
+        "windows"
+    };
+
+    let pkg_name = get_package_name(&tool, &source);
+
+    let uninstall_cmd = match (source.as_str(), os) {
+        ("brew", _) => format!("brew uninstall {}", pkg_name),
+        ("apt", "linux") => format!("sudo apt remove {} -y", pkg_name),
+        ("choco", "windows") => format!("choco uninstall {} -y", pkg_name),
+        ("pyenv", _) => {
+            // pyenv 不能直接卸载，提示用户
+            return Ok("pyenv 管理的 Python 版本请使用 'pyenv uninstall <version>' 命令手动卸载".to_string());
+        }
+        ("nvm", _) => {
+            return Ok("nvm 管理的 Node.js 版本请使用 'nvm uninstall <version>' 命令手动卸载".to_string());
+        }
+        ("sdkman", _) => {
+            return Ok("SDKMAN 管理的 Java 版本请使用 'sdk uninstall java <version>' 命令手动卸载".to_string());
+        }
+        ("rustup", _) => {
+            return Ok("rustup 管理的工具链请使用 'rustup toolchain remove <toolchain>' 命令手动卸载".to_string());
+        }
+        ("conda", _) => {
+            return Ok("conda 环境请使用 'conda remove <package>' 命令手动卸载".to_string());
+        }
+        ("system", _) | ("manual", _) => {
+            return Err("系统安装的工具无法自动卸载，请手动删除".to_string());
+        }
+        _ => return Err(format!("不支持从 {} 卸载", source)),
+    };
+
+    let shell = if os == "windows" { "cmd" } else { "sh" };
+    let args: Vec<&str> = if os == "windows" {
+        vec!["/c", &uninstall_cmd]
+    } else {
+        vec!["-c", &uninstall_cmd]
+    };
+
+    let output = Command::new(shell)
+        .args(&args)
+        .output()
+        .map_err(|e| format!("执行卸载命令失败: {}", e))?;
+
+    if output.status.success() {
+        Ok(format!("已从 {} 卸载 {}", source, tool))
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(format!("卸载失败: {}", stderr))
+    }
+}
+
+// ============================================
+// 异步安装工具（修复卡顿问题）
+// ============================================
+
+#[tauri::command]
+pub async fn install_tool_async(name: String) -> Result<String, String> {
+    let os = if cfg!(target_os = "macos") {
+        "macos"
+    } else if cfg!(target_os = "linux") {
+        "linux"
+    } else {
+        "windows"
+    };
+
+    let cmd = get_install_command(&name, os)
+        .ok_or_else(|| format!("不支持安装 {} 在 {} 系统", name, os))?;
+
+    // 使用 tokio 的异步命令执行
+    let output = tokio::process::Command::new("sh")
+        .arg("-c")
+        .arg(&cmd)
+        .output()
+        .await
+        .map_err(|e| format!("执行命令失败: {}", e))?;
+
+    if output.status.success() {
+        return Ok(format!("{} 安装成功", name));
     }
 
-    let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    // 如果失败，尝试国内镜像
+    if let Some(cn_cmd) = get_cn_install_command(&name) {
+        let cn_output = tokio::process::Command::new("sh")
+            .arg("-c")
+            .arg(&cn_cmd)
+            .output()
+            .await
+            .map_err(|e| format!("执行国内镜像命令失败: {}", e))?;
+
+        if cn_output.status.success() {
+            return Ok(format!("{} 安装成功（使用国内镜像）", name));
+        }
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    Err(format!("安装失败: {}", stderr))
+}
+
+#[tauri::command]
+pub async fn sync_java_home(target_version: Option<String>) -> Result<String, String> {
+    // 获取目标版本（如果没有指定，使用当前 jenv 版本）
+    let version = if let Some(v) = target_version {
+        v
+    } else {
+        let output = Command::new("sh")
+            .arg("-c")
+            .arg("jenv version-name 2>/dev/null")
+            .output()
+            .map_err(|e| format!("获取 jenv 版本失败: {}", e))?;
+
+        if !output.status.success() {
+            return Err("jenv 未安装或未配置".to_string());
+        }
+        String::from_utf8_lossy(&output.stdout).trim().to_string()
+    };
 
     // 获取 jenv 对应版本的路径
     let prefix_output = Command::new("sh")
@@ -1148,15 +1260,52 @@ pub fn sync_java_home() -> Result<String, String> {
 
     let java_path = String::from_utf8_lossy(&prefix_output.stdout).trim().to_string();
 
-    // 启用 jenv export 插件（自动设置 JAVA_HOME）
+    // 确定 shell 配置文件
+    let home = dirs::home_dir().ok_or("无法获取 home 目录")?;
+    let shell = std::env::var("SHELL").unwrap_or_default();
+
+    let config_file = if shell.contains("zsh") {
+        home.join(".zshrc")
+    } else {
+        home.join(".bashrc")
+    };
+
+    // 读取当前配置文件内容
+    let content = std::fs::read_to_string(&config_file)
+        .unwrap_or_default();
+
+    // 检查是否已有 JAVA_HOME 设置
+    let java_home_line = format!("export JAVA_HOME=\"{}\"", java_path);
+    let new_content = if content.contains("export JAVA_HOME=") {
+        // 替换现有的 JAVA_HOME
+        let re = regex::Regex::new(r#"export JAVA_HOME=.*"#).unwrap();
+        re.replace(&content, java_home_line.as_str()).to_string()
+    } else {
+        // 追加 JAVA_HOME
+        format!("{}\n\n# JAVA_HOME (managed by DevHub)\n{}\n", content.trim_end(), java_home_line)
+    };
+
+    // 备份并写入新配置
+    let backup_path = config_file.with_extension("bak");
+    std::fs::copy(&config_file, &backup_path)
+        .map_err(|e| format!("备份配置文件失败: {}", e))?;
+
+    std::fs::write(&config_file, new_content)
+        .map_err(|e| format!("写入配置文件失败: {}", e))?;
+
+    // 启用 jenv export 插件
     let _ = Command::new("sh")
         .arg("-c")
         .arg("jenv enable-plugin export 2>/dev/null")
         .output();
 
-    // 提示用户手动设置
+    // 更新当前环境变量
+    std::env::set_var("JAVA_HOME", &java_path);
+
     Ok(format!(
-        "请在 shell 配置文件中添加:\nexport JAVA_HOME=\"{}\"\n\n或运行: jenv enable-plugin export",
-        java_path
+        "已将 JAVA_HOME 更新为: {}\n配置文件: {}\n请重新打开终端或执行 source {} 使配置生效",
+        java_path,
+        config_file.display(),
+        config_file.display()
     ))
 }

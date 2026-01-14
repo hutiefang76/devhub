@@ -1,38 +1,60 @@
 [package]
 name = "devhub"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["Frank Hu <hutiefang@gmail.com>"]
-description = "优雅轻巧的开发环境管理平台"
+description = "开发环境管理工具 - CLI & GUI"
 homepage = "https://github.com/hutiefang76/devhub"
 repository = "https://github.com/hutiefang76/devhub"
 license = "MIT"
 
+[[bin]]
+name = "devhub"
+path = "src/bin/cli.rs"
+
+[lib]
+name = "devhub"
+path = "src/lib.rs"
+
 [dependencies]
-# Tauri框架
-tauri = { version = "1.6", features = ["shell-open"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# CLI 框架
+clap = { version = "4.0", features = ["derive"] }
 
 # 异步运行时
 tokio = { version = "1", features = ["full"] }
 async-trait = "0.1"
+futures = "0.3"
 
-# HTTP客户端（测速）
-reqwest = { version = "0.12", features = ["json"] }
+# HTTP 客户端
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+# 序列化
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
 
 # 工具库
 regex = "1"
 dirs = "5"
+directories = "6"
 anyhow = "1"
-thiserror = "1"
+thiserror = "2"
+
+# 进度条
+indicatif = "0.17"
+
+# Tauri (可选，用于 GUI)
+tauri = { version = "1.6", features = ["shell-open", "dialog-ask", "dialog-confirm", "dialog-message", "dialog-open", "dialog-save"], optional = true }
 
 [build-dependencies]
-tauri-build = "1"
+tauri-build = { version = "1", features = [], optional = true }
 
 [features]
-default = ["custom-protocol"]
-custom-protocol = ["tauri/custom-protocol"]
+default = []
+gui = ["tauri", "tauri-build"]
+
+[dev-dependencies]
+tempfile = "3"
 
 [profile.release]
 opt-level = 3

@@ -1,10 +1,9 @@
 {
   "build": {
-    "beforeDevCommand": "cd frontend && npm run dev",
-    "beforeBuildCommand": "cd frontend && npm run build",
-    "devPath": "http://localhost:5173",
     "distDir": "frontend/dist",
-    "withGlobalTauri": false
+    "devPath": "http://localhost:5173",
+    "beforeDevCommand": "cd frontend && npm run dev",
+    "beforeBuildCommand": "cd frontend && npm run build"
   },
   "package": {
     "productName": "DevHub Pro",
@@ -16,6 +15,14 @@
       "shell": {
         "all": false,
         "open": true
+      },
+      "dialog": {
+        "all": false,
+        "ask": true,
+        "confirm": true,
+        "message": true,
+        "open": true,
+        "save": true
       }
     },
     "bundle": {
@@ -33,15 +40,19 @@
     "security": {
       "csp": null
     },
+    "updater": {
+      "active": false
+    },
     "windows": [
       {
-        "fullscreen": false,
+        "title": "DevHub Pro - 开发环境管理平台",
+        "width": 1000,
+        "height": 700,
         "resizable": true,
-        "title": "DevHub Pro",
-        "width": 1200,
-        "height": 800,
-        "minWidth": 800,
-        "minHeight": 600
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "center": true
       }
     ]
   }

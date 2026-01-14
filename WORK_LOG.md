@@ -36,8 +36,9 @@
 - [x] 编译通过
 - [x] 基本测试通过
 
-### 🔄 进行中
-- [ ] 推送到远程仓库
+### ✅ 已推送
+- [x] 推送到 GitHub: https://github.com/hutiefang76/devhub
+- [x] 推送到 Gitee: https://gitee.com/hutiefang/devhub
 
 ### ⏳ 待完成 (后续版本)
 - [ ] Kubernetes (Helm) 镜像管理

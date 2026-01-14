@@ -95,7 +95,10 @@ async fn check_latency(client: &Client, mirror: Mirror) -> BenchmarkResult {
     let url_to_test = mirror
         .url
         .trim_start_matches("sparse+")
-        .trim_start_matches("git+");
+        .trim_start_matches("git+")
+        .split(',')
+        .next()
+        .unwrap_or(&mirror.url);
 
     let latency_ms = match client.head(url_to_test).send().await {
         Ok(resp) => {

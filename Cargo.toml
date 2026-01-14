@@ -12,6 +12,11 @@ license = "MIT"
 name = "devhub"
 path = "src/bin/cli.rs"
 
+[[bin]]
+name = "devhub-gui"
+path = "src/main.rs"
+required-features = ["gui"]
+
 [lib]
 name = "devhub"
 path = "src/lib.rs"

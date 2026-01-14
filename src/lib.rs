@@ -5,6 +5,9 @@ pub mod traits;
 pub mod types;
 pub mod utils;
 
+#[cfg(feature = "gui")]
+pub mod commands;
+
 pub use error::{DevHubError, Result};
 pub use sources::{get_manager, SUPPORTED_TOOLS};
 pub use traits::SourceManager;

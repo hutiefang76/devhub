@@ -1,521 +1,351 @@
 import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/tauri'
+import {
+  Layout,
+  Menu,
+  Card,
+  Button,
+  Table,
+  Tag,
+  Space,
+  Message,
+  Radio,
+  Spin,
+  Typography,
+  Divider,
+} from '@arco-design/web-react'
+import {
+  IconThunderbolt,
+  IconRefresh,
+  IconCheck,
+  IconSync,
+} from '@arco-design/web-react/icon'
+import '@arco-design/web-react/dist/css/arco.css'
 import './App.css'
 
-interface DetectionInfo {
-  installed: boolean
-  version: string | null
-  path: string | null
-}
+const { Sider, Content } = Layout
+const { Title, Text } = Typography
 
 interface Mirror {
   name: string
   url: string
 }
 
-interface PythonEnvironment {
+interface ToolStatus {
   name: string
-  source: string
-  path: string
-  version: string | null
-  is_active: boolean
+  current_url: string | null
+  current_name: string | null
 }
 
-type Language = 'python' | 'java' | 'javascript' | 'rust' | 'go' | 'docker' | 'other'
+interface SpeedTestResult {
+  name: string
+  url: string
+  latency_ms: number
+  is_timeout: boolean
+}
+
+type TabKey = 'python' | 'javascript' | 'rust' | 'java' | 'go' | 'docker' | 'system'
+
+const TOOL_MAP: Record<TabKey, string[]> = {
+  python: ['pip', 'uv', 'conda'],
+  javascript: ['npm', 'yarn', 'pnpm'],
+  rust: ['cargo'],
+  java: ['maven', 'gradle'],
+  go: ['go'],
+  docker: ['docker'],
+  system: ['brew', 'apt', 'git'],
+}
+
+const TAB_LABELS: Record<TabKey, string> = {
+  python: 'Python',
+  javascript: 'JavaScript',
+  rust: 'Rust',
+  java: 'Java',
+  go: 'Go',
+  docker: 'Docker',
+  system: '系统工具',
+}
 
 function App() {
-  const [currentLang, setCurrentLang] = useState<Language>('python')
-
-  // Python 状态
-  const [pythonInfo, setPythonInfo] = useState<DetectionInfo | null>(null)
-  const [pythonEnvs, setPythonEnvs] = useState<PythonEnvironment[]>([])
-  const [pythonMirrors, setPythonMirrors] = useState<Mirror[]>([])
-  const [currentPythonMirror, setCurrentPythonMirror] = useState<string | null>(null)
-  const [pythonSpeedResults, setPythonSpeedResults] = useState<Map<string, number>>(new Map())
-  const [pythonTesting, setPythonTesting] = useState(false)
-  const [showCreateVenv, setShowCreateVenv] = useState(false)
-  const [newVenvName, setNewVenvName] = useState('')
-  const [newVenvVersion, setNewVenvVersion] = useState('')
-
-  // JavaScript 状态
-  const [jsMirrors, setJsMirrors] = useState<Mirror[]>([])
-  const [currentJsMirror, setCurrentJsMirror] = useState<string | null>(null)
-  const [jsSpeedResults, setJsSpeedResults] = useState<Map<string, number>>(new Map())
-  const [jsTesting, setJsTesting] = useState(false)
-
-  // Rust 状态
-  const [rustMirrors, setRustMirrors] = useState<Mirror[]>([])
-  const [currentRustMirror, setCurrentRustMirror] = useState<string | null>(null)
-  const [rustSpeedResults, setRustSpeedResults] = useState<Map<string, number>>(new Map())
-  const [rustTesting, setRustTesting] = useState(false)
-
-  // Java 状态
-  const [mavenMirrors, setMavenMirrors] = useState<Mirror[]>([])
-  const [currentMavenMirror, setCurrentMavenMirror] = useState<string | null>(null)
-  const [gradleMirrors, setGradleMirrors] = useState<Mirror[]>([])
-  const [currentGradleMirror, setCurrentGradleMirror] = useState<string | null>(null)
-  const [javaSpeedResults, setJavaSpeedResults] = useState<Map<string, number>>(new Map())
-  const [javaTesting, setJavaTesting] = useState(false)
-
-  // Go 状态
-  const [goMirrors, setGoMirrors] = useState<Mirror[]>([])
-  const [currentGoMirror, setCurrentGoMirror] = useState<string | null>(null)
-  const [goSpeedResults, setGoSpeedResults] = useState<Map<string, number>>(new Map())
-  const [goTesting, setGoTesting] = useState(false)
-
-  // Docker 状态
-  const [dockerMirrors, setDockerMirrors] = useState<Mirror[]>([])
-  const [currentDockerMirror, setCurrentDockerMirror] = useState<string | null>(null)
-  const [dockerSpeedResults, setDockerSpeedResults] = useState<Map<string, number>>(new Map())
-  const [dockerTesting, setDockerTesting] = useState(false)
-
-  // 系统工具 状态
-  const [gitMirrors, setGitMirrors] = useState<Mirror[]>([])
-  const [currentGitMirror, setCurrentGitMirror] = useState<string | null>(null)
-  const [homebrewMirrors, setHomebrewMirrors] = useState<Mirror[]>([])
-  const [currentHomebrewMirror, setCurrentHomebrewMirror] = useState<string | null>(null)
-
-  const [message, setMessage] = useState('')
+  const [currentTab, setCurrentTab] = useState<TabKey>('python')
+  const [currentTool, setCurrentTool] = useState<string>('pip')
+  const [mirrors, setMirrors] = useState<Mirror[]>([])
+  const [speedResults, setSpeedResults] = useState<Map<string, SpeedTestResult>>(new Map())
+  const [currentStatus, setCurrentStatus] = useState<ToolStatus | null>(null)
+  const [testing, setTesting] = useState(false)
+  const [applying, setApplying] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    loadData()
-  }, [currentLang])
-
-  const loadData = async () => {
-    switch (currentLang) {
-      case 'python': await loadPythonData(); break
-      case 'javascript': await loadJavaScriptData(); break
-      case 'rust': await loadRustData(); break
-      case 'java': await loadJavaData(); break
-      case 'go': await loadGoData(); break
-      case 'docker': await loadDockerData(); break
-      case 'other': await loadSystemToolsData(); break
+    const tools = TOOL_MAP[currentTab]
+    if (tools.length > 0) {
+      setCurrentTool(tools[0])
     }
-  }
+  }, [currentTab])
 
-  const loadPythonData = async () => {
+  useEffect(() => {
+    loadToolData()
+  }, [currentTool])
+
+  const loadToolData = async () => {
+    if (!currentTool) return
+    setLoading(true)
+    setSpeedResults(new Map())
     try {
-      const info = await invoke<DetectionInfo>('detect_python')
-      setPythonInfo(info)
-
-      const envList = await invoke<PythonEnvironment[]>('list_python_environments')
-      setPythonEnvs(envList)
-
-      const current = await invoke<string | null>('get_current_pip_mirror')
-      setCurrentPythonMirror(current)
-      const mirrorList = await invoke<Mirror[]>('list_pip_mirrors')
-      setPythonMirrors(mirrorList)
+      const [mirrorList, status] = await Promise.all([
+        invoke<Mirror[]>('list_mirrors', { name: currentTool }),
+        invoke<ToolStatus>('get_tool_status', { name: currentTool }),
+      ])
+      setMirrors(mirrorList)
+      setCurrentStatus(status)
     } catch (error) {
-      console.error('加载Python数据失败:', error)
-      setMessage(`错误: ${error}`)
+      Message.error(`加载失败: ${error}`)
+    } finally {
+      setLoading(false)
     }
   }
 
-  const loadJavaScriptData = async () => {
+  const handleTestSpeed = async () => {
+    setTesting(true)
+    setSpeedResults(new Map())
     try {
-      const current = await invoke<string | null>('get_current_npm_mirror')
-      setCurrentJsMirror(current || 'https://registry.npmjs.org')
-      const mirrorList = await invoke<Mirror[]>('list_npm_mirrors')
-      setJsMirrors(mirrorList)
+      const results = await invoke<SpeedTestResult[]>('test_mirrors', { name: currentTool })
+      const resultMap = new Map<string, SpeedTestResult>()
+      results.forEach(r => resultMap.set(r.name, r))
+      setSpeedResults(resultMap)
+      Message.success('测速完成')
     } catch (error) {
-      console.error('加载JavaScript数据失败:', error)
+      Message.error(`测速失败: ${error}`)
+    } finally {
+      setTesting(false)
     }
   }
 
-  const loadRustData = async () => {
+  const handleApplyMirror = async (mirror: Mirror) => {
+    setApplying(mirror.name)
     try {
-      const current = await invoke<string | null>('get_current_cargo_mirror')
-      setCurrentRustMirror(current)
-      const mirrorList = await invoke<Mirror[]>('list_cargo_mirrors')
-      setRustMirrors(mirrorList)
+      await invoke('apply_mirror', { name: currentTool, mirror })
+      Message.success(`已切换到 ${mirror.name}`)
+      await loadToolData()
     } catch (error) {
-      console.error('加载Rust数据失败:', error)
+      Message.error(`切换失败: ${error}`)
+    } finally {
+      setApplying(null)
     }
   }
 
-  const loadJavaData = async () => {
+  const handleRestoreDefault = async () => {
     try {
-      const mavenCurrent = await invoke<string | null>('get_current_maven_mirror')
-      setCurrentMavenMirror(mavenCurrent)
-      const mavenList = await invoke<Mirror[]>('list_maven_mirrors')
-      setMavenMirrors(mavenList)
-
-      const gradleCurrent = await invoke<string | null>('get_current_gradle_mirror')
-      setCurrentGradleMirror(gradleCurrent)
-      const gradleList = await invoke<Mirror[]>('list_gradle_mirrors')
-      setGradleMirrors(gradleList)
+      await invoke('restore_default', { name: currentTool })
+      Message.success('已恢复默认配置')
+      await loadToolData()
     } catch (error) {
-      console.error('加载Java数据失败:', error)
+      Message.error(`恢复失败: ${error}`)
     }
   }
 
-  const loadGoData = async () => {
+  const handleApplyFastest = async () => {
+    setTesting(true)
     try {
-      const current = await invoke<string | null>('get_current_go_mirror')
-      setCurrentGoMirror(current)
-      const mirrorList = await invoke<Mirror[]>('list_go_mirrors')
-      setGoMirrors(mirrorList)
+      const fastest = await invoke<Mirror>('apply_fastest_mirror', { name: currentTool })
+      Message.success(`已切换到最快镜像: ${fastest.name}`)
+      await loadToolData()
     } catch (error) {
-      console.error('加载Go数据失败:', error)
+      Message.error(`操作失败: ${error}`)
+    } finally {
+      setTesting(false)
     }
   }
 
-  const loadDockerData = async () => {
+  const handleSyncJava = async (mirrorName: string) => {
     try {
-      const current = await invoke<string | null>('get_current_docker_mirror')
-      setCurrentDockerMirror(current)
-      const mirrorList = await invoke<Mirror[]>('list_docker_mirrors')
-      setDockerMirrors(mirrorList)
+      await invoke('sync_java_mirrors', { mirrorName })
+      Message.success(`Maven 和 Gradle 已同步到 ${mirrorName}`)
+      await loadToolData()
     } catch (error) {
-      console.error('加载Docker数据失败:', error)
+      Message.error(`同步失败: ${error}`)
     }
   }
 
-  const loadSystemToolsData = async () => {
-    try {
-      const gitCurrent = await invoke<string | null>('get_current_git_mirror')
-      setCurrentGitMirror(gitCurrent)
-      const gitList = await invoke<Mirror[]>('list_git_mirrors')
-      setGitMirrors(gitList)
-
-      try {
-        const homebrewCurrent = await invoke<string | null>('get_current_homebrew_mirror')
-        setCurrentHomebrewMirror(homebrewCurrent)
-        const homebrewList = await invoke<Mirror[]>('list_homebrew_mirrors')
-        setHomebrewMirrors(homebrewList)
-      } catch (e) {
-        // Ignore if not macOS
-      }
-    } catch (error) {
-      console.error('加载系统工具数据失败:', error)
-    }
-  }
-
-  const formatLatency = (ms: number): string => {
-    if (ms === Number.MAX_VALUE || ms > 10000) return '超时'
-    return `${ms}ms`
-  }
-
-  const getSortedMirrors = (mirrors: Mirror[], results: Map<string, number>): Mirror[] => {
+  const getSortedMirrors = () => {
     return [...mirrors].sort((a, b) => {
-      const latencyA = results.get(a.name) ?? Number.MAX_VALUE
-      const latencyB = results.get(b.name) ?? Number.MAX_VALUE
-      return latencyA - latencyB
+      const resultA = speedResults.get(a.name)
+      const resultB = speedResults.get(b.name)
+      if (!resultA && !resultB) return 0
+      if (!resultA) return 1
+      if (!resultB) return -1
+      if (resultA.is_timeout && !resultB.is_timeout) return 1
+      if (!resultA.is_timeout && resultB.is_timeout) return -1
+      return resultA.latency_ms - resultB.latency_ms
     })
   }
 
-  const testSpeed = async (mirrors: Mirror[], setResults: React.Dispatch<React.SetStateAction<Map<string, number>>>) => {
-    const results = new Map<string, number>()
-    for (const mirror of mirrors) {
-      try {
-        const latency = await invoke<number>('test_mirror_speed', { url: mirror.url })
-        results.set(mirror.name, latency)
-      } catch (e) {
-        results.set(mirror.name, Number.MAX_VALUE)
-      }
-    }
-    setResults(results)
+  const getFastestMirror = () => {
+    const valid = Array.from(speedResults.values()).filter(r => !r.is_timeout)
+    if (valid.length === 0) return null
+    return valid.reduce((a, b) => a.latency_ms < b.latency_ms ? a : b)
   }
 
-  const applyMirror = async (mirror: Mirror, command: string) => {
-    try {
-      await invoke(command, { mirror })
-      setMessage(`已切换到 ${mirror.name}`)
-      await loadData()
-    } catch (error) {
-      setMessage(`切换失败: ${error}`)
-    }
-  }
+  const columns = [
+    {
+      title: '镜像源',
+      dataIndex: 'name',
+      render: (name: string, record: Mirror) => {
+        const isCurrent = currentStatus?.current_url?.replace(/\/$/, '') === record.url.replace(/\/$/, '')
+        const result = speedResults.get(name)
+        const fastest = getFastestMirror()
+        const isFastest = fastest && fastest.name === name && !result?.is_timeout
 
-  const restoreDefault = async (command: string) => {
-    try {
-      await invoke(command)
-      setMessage('已恢复默认配置')
-      await loadData()
-    } catch (error) {
-      setMessage(`恢复失败: ${error}`)
-    }
-  }
+        return (
+          <Space>
+            <Text bold={isCurrent}>{name}</Text>
+            {isCurrent && <Tag color="arcoblue">当前</Tag>}
+            {isFastest && <Tag color="gold">最快</Tag>}
+          </Space>
+        )
+      },
+    },
+    {
+      title: '延迟',
+      dataIndex: 'name',
+      width: 120,
+      render: (name: string) => {
+        const result = speedResults.get(name)
+        if (!result) return <Text type="secondary">-</Text>
+        if (result.is_timeout) return <Tag color="red">超时</Tag>
+        const color = result.latency_ms < 200 ? 'green' : result.latency_ms < 500 ? 'orange' : 'red'
+        return <Tag color={color}>{result.latency_ms}ms</Tag>
+      },
+    },
+    {
+      title: '操作',
+      width: 100,
+      render: (_: any, record: Mirror) => {
+        const isCurrent = currentStatus?.current_url?.replace(/\/$/, '') === record.url.replace(/\/$/, '')
+        return (
+          <Button
+            type={isCurrent ? 'secondary' : 'primary'}
+            size="small"
+            disabled={isCurrent}
+            loading={applying === record.name}
+            onClick={() => handleApplyMirror(record)}
+            icon={isCurrent ? <IconCheck /> : undefined}
+          >
+            {isCurrent ? '已应用' : '应用'}
+          </Button>
+        )
+      },
+    },
+  ]
 
-  const switchPythonEnv = async (env: PythonEnvironment) => {
-    try {
-      await invoke('switch_python_env', { env })
-      setMessage(`已切换到 ${env.name}`)
-      await loadData()
-    } catch (error) {
-      setMessage(`切换失败: ${error}`)
-    }
-  }
-
-  const createVenv = async () => {
-    if (!newVenvName || !newVenvVersion) {
-      setMessage('请填写虚拟环境名称和Python版本')
-      return
-    }
-    try {
-      await invoke('create_venv', {
-        name: newVenvName,
-        pythonVersion: newVenvVersion,
-        path: null
-      })
-      setMessage(`已创建虚拟环境 ${newVenvName}`)
-      setShowCreateVenv(false)
-      setNewVenvName('')
-      setNewVenvVersion('')
-      await loadData()
-    } catch (error) {
-      setMessage(`创建失败: ${error}`)
-    }
-  }
-
-  const deleteVenv = async (env: PythonEnvironment) => {
-    if (!confirm(`确定要删除虚拟环境 ${env.name} 吗？`)) return
-    try {
-      await invoke('delete_venv', { env })
-      setMessage(`已删除虚拟环境 ${env.name}`)
-      await loadData()
-    } catch (error) {
-      setMessage(`删除失败: ${error}`)
-    }
-  }
-
-  const renderMirrorGrid = (
-    mirrors: Mirror[],
-    currentMirror: string | null,
-    speedResults: Map<string, number>,
-    testing: boolean,
-    setTesting: React.Dispatch<React.SetStateAction<boolean>>,
-    setResults: React.Dispatch<React.SetStateAction<Map<string, number>>>,
-    applyCmd: string,
-    restoreCmd?: string
-  ) => (
-    <div className="mirror-config">
-      <div className="section-header">
-        <div className="actions">
-          <button onClick={() => { setTesting(true); testSpeed(mirrors, setResults).then(() => setTesting(false)); }} disabled={testing}>
-            {testing ? '⏳ 测速中...' : '⚡ 测速'}
-          </button>
-          {restoreCmd && (
-            <button onClick={() => restoreDefault(restoreCmd)} className="secondary">
-              🔄 恢复默认
-            </button>
-          )}
-        </div>
-      </div>
-
-      {currentMirror && (
-        <div className="current-mirror">
-          <strong>当前镜像源:</strong> {mirrors.find(m => m.url === currentMirror)?.name || currentMirror}
-        </div>
-      )}
-
-      <div className="mirror-grid">
-        {getSortedMirrors(mirrors, speedResults).map((mirror) => {
-          const latency = speedResults.get(mirror.name)
-          const isCurrent = currentMirror === mirror.url
-          const fastestLatency = Math.min(...Array.from(speedResults.values()).filter(v => v < Number.MAX_VALUE))
-          const isFastest = latency !== undefined && latency === fastestLatency && latency < Number.MAX_VALUE
-
-          return (
-            <div
-              key={mirror.name}
-              className={`mirror-card ${isCurrent ? 'current' : ''} ${isFastest ? 'fastest' : ''}`}
-            >
-              <div className="mirror-info">
-                <h3>{mirror.name}</h3>
-                <p className="mirror-url">{mirror.url}</p>
-                {latency !== undefined && (
-                  <div className="latency">
-                    延迟: <strong>{formatLatency(latency)}</strong>
-                  </div>
-                )}
-                {isFastest && latency && latency < Number.MAX_VALUE && (
-                  <span className="badge fastest-badge">🏆 最快</span>
-                )}
-              </div>
-              <button
-                onClick={() => applyMirror(mirror, applyCmd)}
-                disabled={isCurrent}
-                className={isCurrent ? 'applied' : ''}
-              >
-                {isCurrent ? '✓ 已应用' : '应用'}
-              </button>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
+  const tools = TOOL_MAP[currentTab]
 
   return (
-    <div className="container">
-      <header>
-        <h1>🚀 DevHub Pro</h1>
-        <p className="subtitle">优雅轻巧的开发环境管理工具</p>
-        <nav className="lang-nav">
-          <button className={currentLang === 'python' ? 'active' : ''} onClick={() => setCurrentLang('python')}>Python</button>
-          <button className={currentLang === 'java' ? 'active' : ''} onClick={() => setCurrentLang('java')}>Java</button>
-          <button className={currentLang === 'javascript' ? 'active' : ''} onClick={() => setCurrentLang('javascript')}>JavaScript</button>
-          <button className={currentLang === 'rust' ? 'active' : ''} onClick={() => setCurrentLang('rust')}>Rust</button>
-          <button className={currentLang === 'go' ? 'active' : ''} onClick={() => setCurrentLang('go')}>Go</button>
-          <button className={currentLang === 'docker' ? 'active' : ''} onClick={() => setCurrentLang('docker')}>Docker</button>
-          <button className={currentLang === 'other' ? 'active' : ''} onClick={() => setCurrentLang('other')}>其他</button>
-        </nav>
-      </header>
-
-      <main>
-        {currentLang === 'python' && (
-          <>
-            <section className="python-status">
-              <h2>Python 环境</h2>
-              <div className="status-card">
-                <div className="status-item">
-                  <span className="label">状态:</span>
-                  <span className={pythonInfo?.installed ? 'badge success' : 'badge error'}>
-                    {pythonInfo?.installed ? '✅ 已安装' : '❌ 未安装'}
-                  </span>
-                </div>
-                {pythonInfo?.version && (
-                  <div className="status-item">
-                    <span className="label">版本:</span>
-                    <span className="value">{pythonInfo.version}</span>
-                  </div>
-                )}
-                {pythonInfo?.path && (
-                  <div className="status-item">
-                    <span className="label">路径:</span>
-                    <span className="value path">{pythonInfo.path}</span>
-                  </div>
-                )}
-              </div>
-            </section>
-
-            <section className="mirror-config">
-              <div className="section-header">
-                <h2>Python 环境列表</h2>
-                <div className="actions">
-                  <button onClick={() => setShowCreateVenv(!showCreateVenv)} className="secondary">
-                    {showCreateVenv ? '取消' : '+ 创建虚拟环境'}
-                  </button>
-                </div>
-              </div>
-
-              {showCreateVenv && (
-                <div className="create-venv-form">
-                  <input
-                    type="text"
-                    placeholder="环境名称"
-                    value={newVenvName}
-                    onChange={(e) => setNewVenvName(e.target.value)}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Python版本 (如 3.12)"
-                    value={newVenvVersion}
-                    onChange={(e) => setNewVenvVersion(e.target.value)}
-                  />
-                  <button onClick={createVenv}>创建</button>
-                </div>
-              )}
-
-              <div className="env-list">
-                {pythonEnvs.map((env) => (
-                  <div key={env.name} className={`env-item ${env.is_active ? 'active' : ''}`}>
-                    <div className="env-info">
-                      <span className="env-name">{env.name}</span>
-                      <span className="env-source">{env.source}</span>
-                      {env.version && <span className="env-version">v{env.version}</span>}
-                    </div>
-                    <div className="env-actions">
-                      {!env.is_active && (
-                        <button onClick={() => switchPythonEnv(env)} className="small">
-                          切换
-                        </button>
-                      )}
-                      {(env.source === 'Venv' || env.source === 'CondaEnv') && (
-                        <button onClick={() => deleteVenv(env)} className="small danger">
-                          删除
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="mirror-config">
-              <h2>pip 镜像源配置</h2>
-              {renderMirrorGrid(pythonMirrors, currentPythonMirror, pythonSpeedResults, pythonTesting, setPythonTesting, setPythonSpeedResults, 'apply_pip_mirror', 'restore_pip_default')}
-            </section>
-          </>
-        )}
-
-        {currentLang === 'java' && (
-          <>
-            <section className="mirror-config">
-              <h2>Maven 镜像源配置</h2>
-              {renderMirrorGrid(mavenMirrors, currentMavenMirror, javaSpeedResults, javaTesting, setJavaTesting, setJavaSpeedResults, 'apply_maven_mirror')}
-            </section>
-
-            <section className="mirror-config">
-              <h2>Gradle 镜像源配置</h2>
-              {renderMirrorGrid(gradleMirrors, currentGradleMirror, javaSpeedResults, javaTesting, setJavaTesting, setJavaSpeedResults, 'apply_gradle_mirror')}
-            </section>
-          </>
-        )}
-
-        {currentLang === 'javascript' && (
-          <section className="mirror-config">
-            <h2>npm 镜像源配置</h2>
-            {renderMirrorGrid(jsMirrors, currentJsMirror, jsSpeedResults, jsTesting, setJsTesting, setJsSpeedResults, 'apply_npm_mirror', 'restore_npm_default')}
-          </section>
-        )}
-
-        {currentLang === 'rust' && (
-          <section className="mirror-config">
-            <h2>Cargo 镜像源配置</h2>
-            {renderMirrorGrid(rustMirrors, currentRustMirror, rustSpeedResults, rustTesting, setRustTesting, setRustSpeedResults, 'apply_cargo_mirror', 'restore_cargo_default')}
-          </section>
-        )}
-
-        {currentLang === 'go' && (
-          <section className="mirror-config">
-            <h2>Go Modules 镜像源配置</h2>
-            {renderMirrorGrid(goMirrors, currentGoMirror, goSpeedResults, goTesting, setGoTesting, setGoSpeedResults, 'apply_go_mirror')}
-          </section>
-        )}
-
-        {currentLang === 'docker' && (
-          <section className="mirror-config">
-            <h2>Docker 镜像加速配置</h2>
-            {renderMirrorGrid(dockerMirrors, currentDockerMirror, dockerSpeedResults, dockerTesting, setDockerTesting, setDockerSpeedResults, 'apply_docker_mirror')}
-            <p className="text-muted" style={{marginTop: '16px'}}>⚠️ 修改后需要重启 Docker 服务</p>
-          </section>
-        )}
-
-        {currentLang === 'other' && (
-          <>
-            <section className="mirror-config">
-              <h2>Git 镜像源配置</h2>
-              {renderMirrorGrid(gitMirrors, currentGitMirror, new Map(), false, () => {}, () => new Map(), 'apply_git_mirror')}
-            </section>
-
-            {homebrewMirrors.length > 0 && (
-              <section className="mirror-config">
-                <h2>Homebrew 镜像源配置</h2>
-                {renderMirrorGrid(homebrewMirrors, currentHomebrewMirror, new Map(), false, () => {}, () => new Map(), 'apply_homebrew_mirror')}
-              </section>
-            )}
-          </>
-        )}
-      </main>
-
-      {message && (
-        <div className="message">
-          {message}
+    <Layout className="app-layout">
+      <Sider width={180} className="app-sider">
+        <div className="logo">
+          <Title heading={5} style={{ margin: 0, color: '#fff' }}>DevHub Pro</Title>
         </div>
-      )}
-    </div>
+        <Menu
+          selectedKeys={[currentTab]}
+          onClickMenuItem={(key) => setCurrentTab(key as TabKey)}
+          style={{ width: '100%' }}
+        >
+          {Object.entries(TAB_LABELS).map(([key, label]) => (
+            <Menu.Item key={key}>{label}</Menu.Item>
+          ))}
+        </Menu>
+      </Sider>
+
+      <Content className="app-content">
+        <div className="content-header">
+          <Space size="large">
+            <Title heading={4} style={{ margin: 0 }}>{TAB_LABELS[currentTab]} 镜像源配置</Title>
+            {tools.length > 1 && (
+              <Radio.Group
+                type="button"
+                value={currentTool}
+                onChange={(value) => setCurrentTool(value)}
+                options={tools.map(t => ({ label: t.toUpperCase(), value: t }))}
+              />
+            )}
+          </Space>
+        </div>
+
+        <Spin loading={loading} style={{ display: 'block' }}>
+          <Card className="mirror-card">
+            <div className="card-header">
+              <Space>
+                <Text bold>当前镜像源:</Text>
+                {currentStatus?.current_name ? (
+                  <Tag color="arcoblue" size="large">{currentStatus.current_name}</Tag>
+                ) : (
+                  <Tag size="large">官方默认</Tag>
+                )}
+              </Space>
+              <Space>
+                <Button
+                  type="primary"
+                  icon={<IconThunderbolt />}
+                  loading={testing}
+                  onClick={handleTestSpeed}
+                >
+                  测速
+                </Button>
+                <Button
+                  type="outline"
+                  icon={<IconSync />}
+                  loading={testing}
+                  onClick={handleApplyFastest}
+                >
+                  一键最快
+                </Button>
+                <Button
+                  type="secondary"
+                  icon={<IconRefresh />}
+                  onClick={handleRestoreDefault}
+                >
+                  恢复默认
+                </Button>
+              </Space>
+            </div>
+
+            <Divider style={{ margin: '16px 0' }} />
+
+            <Table
+              columns={columns}
+              data={getSortedMirrors()}
+              rowKey="name"
+              pagination={false}
+              border={false}
+              size="middle"
+            />
+
+            {currentTab === 'java' && tools.length > 1 && (
+              <>
+                <Divider style={{ margin: '16px 0' }} />
+                <Card title="一键同步 Maven & Gradle" size="small">
+                  <Text type="secondary" style={{ marginBottom: 12, display: 'block' }}>
+                    选择一个镜像源，同时应用到 Maven 和 Gradle
+                  </Text>
+                  <Space wrap>
+                    {mirrors.slice(0, 4).map(m => (
+                      <Button
+                        key={m.name}
+                        type="outline"
+                        onClick={() => handleSyncJava(m.name)}
+                      >
+                        同步到 {m.name}
+                      </Button>
+                    ))}
+                  </Space>
+                </Card>
+              </>
+            )}
+          </Card>
+        </Spin>
+      </Content>
+    </Layout>
   )
 }
 

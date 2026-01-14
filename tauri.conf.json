@@ -29,13 +29,7 @@
       "active": true,
       "targets": "all",
       "identifier": "com.devhub.pro",
-      "icon": [
-        "icons/32x32.png",
-        "icons/128x128.png",
-        "icons/128x128@2x.png",
-        "icons/icon.icns",
-        "icons/icon.ico"
-      ]
+      "icon": []
     },
     "security": {
       "csp": null
@@ -45,9 +39,11 @@
     },
     "windows": [
       {
-        "title": "DevHub Pro - 开发环境管理平台",
-        "width": 1000,
-        "height": 700,
+        "title": "DevHub Pro",
+        "width": 900,
+        "height": 600,
+        "minWidth": 700,
+        "minHeight": 500,
         "resizable": true,
         "fullscreen": false,
         "decorations": true,

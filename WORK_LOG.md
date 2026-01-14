@@ -126,6 +126,23 @@ devhub restore <tool>             # 恢复默认配置
   - `devhub status` ✅
   - `devhub test pip` ✅
   - `devhub test npm` ✅
+  - `devhub test cargo` ✅
+  - `devhub test go` ✅
+  - `devhub test docker` ✅
+  - `devhub test maven` ✅
+- 修复 Go 镜像源测速 URL 处理
+- 代码已推送到 GitHub 和 Gitee
+- Release 构建成功，二进制文件 4.4MB
+
+---
+
+## 下一步计划 (等待用户确认)
+
+### 待完成功能
+1. **MCP 服务/skill**: 将 CLI 封装为 MCP 服务，供 AI 调用
+2. **前端重构**: Tauri + React 调用 CLI
+3. **Helm 镜像管理**: Kubernetes Helm 仓库配置
+4. **版本管理集成**: pyenv, nvm, SDKMAN, rustup
 
 ---
 

@@ -7,10 +7,11 @@ description = "开发环境管理工具 - CLI & GUI"
 homepage = "https://github.com/hutiefang76/devhub"
 repository = "https://github.com/hutiefang76/devhub"
 license = "MIT"
+default-run = "devhub-gui"
 
 [[bin]]
 name = "devhub"
-path = "src/bin/cli.rs"
+path = "src/bin/devhub.rs"
 
 [[bin]]
 name = "devhub-gui"
@@ -49,10 +50,10 @@ thiserror = "2"
 indicatif = "0.17"
 
 # Tauri (可选，用于 GUI)
-tauri = { version = "1.6", features = ["shell-open", "dialog-ask", "dialog-confirm", "dialog-message", "dialog-open", "dialog-save"], optional = true }
+tauri = { version = "2", features = [], optional = true }
 
 [build-dependencies]
-tauri-build = { version = "1", features = [], optional = true }
+tauri-build = { version = "2", features = [], optional = true }
 
 [features]
 default = []

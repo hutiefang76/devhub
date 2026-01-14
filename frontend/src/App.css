@@ -1,3 +1,103 @@
+/* ========================================
+   Apple Human Interface Guidelines 配色
+   自动跟随系统明暗模式
+   ======================================== */
+
+:root {
+  /* === Apple 浅色模式 === */
+
+  /* 背景 - 更柔和 */
+  --bg-primary: #f5f5f7;
+  --bg-secondary: #ebebed;
+  --bg-tertiary: #ffffff;
+  --bg-grouped: #f5f5f7;
+
+  /* 填充 */
+  --fill-primary: rgba(120, 120, 128, 0.2);
+  --fill-secondary: rgba(120, 120, 128, 0.16);
+  --fill-tertiary: rgba(120, 120, 128, 0.12);
+
+  /* 文字 */
+  --text-primary: #1d1d1f;
+  --text-secondary: #86868b;
+  --text-tertiary: #c7c7cc;
+  --text-inverse: #ffffff;
+
+  /* 分隔线 */
+  --separator: rgba(60, 60, 67, 0.12);
+  --separator-opaque: #c6c6c8;
+
+  /* Apple 系统色 */
+  --system-blue: #007aff;
+  --system-blue-hover: #0071e3;
+  --system-green: #34c759;
+  --system-orange: #ff9500;
+  --system-red: #ff3b30;
+  --system-yellow: #ffcc00;
+  --system-purple: #af52de;
+  --system-pink: #ff2d55;
+  --system-teal: #5ac8fa;
+  --system-indigo: #5856d6;
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+  /* 圆角 */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+}
+
+/* === Apple 深色模式 === */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* 背景 */
+    --bg-primary: #000000;
+    --bg-secondary: #1c1c1e;
+    --bg-tertiary: #2c2c2e;
+    --bg-grouped: #1c1c1e;
+
+    /* 填充 */
+    --fill-primary: rgba(120, 120, 128, 0.36);
+    --fill-secondary: rgba(120, 120, 128, 0.32);
+    --fill-tertiary: rgba(120, 120, 128, 0.24);
+
+    /* 文字 */
+    --text-primary: #f5f5f7;
+    --text-secondary: #a1a1a6;
+    --text-tertiary: #6e6e73;
+    --text-inverse: #000000;
+
+    /* 分隔线 */
+    --separator: rgba(84, 84, 88, 0.65);
+    --separator-opaque: #38383a;
+
+    /* Apple 系统色 (深色模式调整) */
+    --system-blue: #0a84ff;
+    --system-blue-hover: #409cff;
+    --system-green: #30d158;
+    --system-orange: #ff9f0a;
+    --system-red: #ff453a;
+    --system-yellow: #ffd60a;
+    --system-purple: #bf5af2;
+    --system-pink: #ff375f;
+    --system-teal: #64d2ff;
+    --system-indigo: #5e5ce6;
+
+    /* 阴影 */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* ========================================
+   基础样式
+   ======================================== */
+
 * {
   margin: 0;
   padding: 0;
@@ -7,55 +107,147 @@
 html, body, #root {
   height: 100%;
   overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
 }
+
+/* ========================================
+   布局
+   ======================================== */
 
 .app-layout {
   height: 100vh;
+  display: flex;
 }
 
+/* 侧边栏 */
 .app-sider {
-  background: linear-gradient(180deg, #1d2129 0%, #0d1117 100%);
+  background: #ebebed !important;
+  border-right: 1px solid rgba(60, 60, 67, 0.12);
 }
 
-.app-sider .arco-menu {
-  background: transparent;
+.app-sider .arco-menu,
+.app-sider .arco-menu-light {
+  background: transparent !important;
+  padding: 8px 0;
 }
 
-.app-sider .arco-menu-item {
-  color: rgba(255, 255, 255, 0.7);
-  margin: 4px 8px;
-  border-radius: 6px;
+/* 侧边栏菜单项 - 未选中状态 */
+.app-sider .arco-menu-item,
+.app-sider .arco-menu .arco-menu-item,
+.app-sider .arco-menu-light .arco-menu-item,
+.app-sider .arco-menu-inner .arco-menu-item {
+  color: #1d1d1f !important;
+  background: transparent !important;
+  margin: 1px 8px !important;
+  padding: 8px 12px !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
 }
 
-.app-sider .arco-menu-item:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+.app-sider .arco-menu-item:hover,
+.app-sider .arco-menu .arco-menu-item:hover {
+  background: rgba(120, 120, 128, 0.12) !important;
+  color: #1d1d1f !important;
 }
 
-.app-sider .arco-menu-selected {
-  background: linear-gradient(135deg, #165dff 0%, #0e42d2 100%) !important;
-  color: #fff !important;
+/* 侧边栏菜单项 - 选中状态 */
+.app-sider .arco-menu-selected,
+.app-sider .arco-menu .arco-menu-selected,
+.app-sider .arco-menu-item.arco-menu-selected {
+  background: #007aff !important;
+  color: #ffffff !important;
+  font-weight: 500 !important;
+}
+
+.app-sider .arco-menu-selected:hover,
+.app-sider .arco-menu .arco-menu-selected:hover {
+  background: #0071e3 !important;
+  color: #ffffff !important;
+}
+
+/* 深色模式 */
+@media (prefers-color-scheme: dark) {
+  .app-sider {
+    background: #1c1c1e !important;
+    border-right: 1px solid rgba(84, 84, 88, 0.65);
+  }
+
+  .app-sider .arco-menu-item,
+  .app-sider .arco-menu .arco-menu-item,
+  .app-sider .arco-menu-light .arco-menu-item,
+  .app-sider .arco-menu-inner .arco-menu-item {
+    color: #f5f5f7 !important;
+  }
+
+  .app-sider .arco-menu-item:hover,
+  .app-sider .arco-menu .arco-menu-item:hover {
+    background: rgba(120, 120, 128, 0.24) !important;
+    color: #f5f5f7 !important;
+  }
+
+  .app-sider .arco-menu-selected,
+  .app-sider .arco-menu .arco-menu-selected {
+    background: #0a84ff !important;
+    color: #ffffff !important;
+  }
+
+  .app-sider .arco-menu-selected:hover {
+    background: #409cff !important;
+  }
 }
 
 .logo {
-  padding: 20px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  margin-bottom: 8px;
+  padding: 16px 12px;
+  border-bottom: 1px solid var(--separator);
+  margin-bottom: 4px;
 }
 
+.logo .arco-typography {
+  color: var(--text-primary) !important;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.2px;
+}
+
+/* 内容区 */
 .app-content {
-  background: #f2f3f5;
-  padding: 24px;
+  background: var(--bg-grouped);
+  padding: 20px;
   overflow-y: auto;
+  flex: 1;
 }
 
 .content-header {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
+  padding: 0 4px;
 }
 
+.content-header .arco-typography {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: -0.3px;
+}
+
+/* ========================================
+   卡片
+   ======================================== */
+
 .mirror-card {
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+  border: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.mirror-card .arco-card-body {
+  padding: 16px;
 }
 
 .card-header {
@@ -64,94 +256,447 @@ html, body, #root {
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--separator);
+}
+
+/* ========================================
+   表格
+   ======================================== */
+
+.arco-table {
+  background: transparent !important;
+}
+
+.arco-table-container {
+  border: none !important;
+  background: transparent !important;
+}
+
+.arco-table-body {
+  background: transparent !important;
 }
 
 .arco-table-th {
-  background: #f7f8fa !important;
+  background: transparent !important;
+  color: var(--text-secondary) !important;
+  font-weight: 500 !important;
+  font-size: 12px !important;
+  padding: 10px 12px !important;
+  border-bottom: 1px solid var(--separator) !important;
+}
+
+.arco-table-td {
+  background: transparent !important;
+  color: #1d1d1f !important;
+  font-size: 14px !important;
+  padding: 12px !important;
+  border-bottom: 1px solid rgba(60, 60, 67, 0.12) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .arco-table-td {
+    color: #f5f5f7 !important;
+    border-bottom: 1px solid rgba(84, 84, 88, 0.65) !important;
+  }
+}
+
+.arco-table-tr:last-child .arco-table-td {
+  border-bottom: none !important;
+}
+
+.arco-table-tr {
+  transition: background 0.15s ease;
 }
 
 .arco-table-tr:hover .arco-table-td {
-  background: #f2f3f5 !important;
+  background: var(--fill-tertiary) !important;
 }
 
-.arco-btn-primary {
-  background: linear-gradient(135deg, #165dff 0%, #0e42d2 100%);
+/* 表格中的文字 */
+.arco-table .arco-typography,
+.arco-table-td .arco-typography {
+  color: #1d1d1f !important;
 }
 
-.arco-btn-primary:hover {
-  background: linear-gradient(135deg, #4080ff 0%, #165dff 100%);
+.arco-table .arco-typography-secondary,
+.arco-table-td .arco-typography-secondary {
+  color: #86868b !important;
 }
 
-.arco-tag-arcoblue {
-  background: linear-gradient(135deg, #165dff 0%, #0e42d2 100%);
-}
-
-.arco-tag-gold {
-  background: linear-gradient(135deg, #f7ba1e 0%, #f5a623 100%);
-  color: #fff;
-}
-
-.arco-radio-group-type-button .arco-radio-button {
-  border-radius: 6px;
-}
-
-.arco-radio-group-type-button .arco-radio-button.arco-radio-checked {
-  background: linear-gradient(135deg, #165dff 0%, #0e42d2 100%);
-  color: #fff;
-}
-
-/* Dark mode */
 @media (prefers-color-scheme: dark) {
-  .app-content {
-    background: #17171a;
+  .arco-table .arco-typography,
+  .arco-table-td .arco-typography {
+    color: #f5f5f7 !important;
   }
 
-  .mirror-card {
-    background: #232324;
-    border: 1px solid #333;
-  }
-
-  .arco-table-th {
-    background: #2a2a2b !important;
-  }
-
-  .arco-table-tr:hover .arco-table-td {
-    background: #2a2a2b !important;
-  }
-
-  .arco-typography {
-    color: rgba(255, 255, 255, 0.9);
-  }
-
-  .arco-divider {
-    border-color: #333;
+  .arco-table .arco-typography-secondary,
+  .arco-table-td .arco-typography-secondary {
+    color: #a1a1a6 !important;
   }
 }
 
-/* Animations */
+/* ========================================
+   按钮
+   ======================================== */
+
 .arco-btn {
-  transition: all 0.2s ease;
+  border-radius: var(--radius-md) !important;
+  font-weight: 500;
+  font-size: 13px;
+  padding: 7px 14px !important;
+  height: auto !important;
+  transition: all 0.15s ease;
 }
 
 .arco-btn:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
+  opacity: 0.9;
 }
 
+/* 主按钮 - Apple Blue */
+.arco-btn-primary {
+  background: var(--system-blue) !important;
+  border: none !important;
+  color: #ffffff !important;
+}
+
+.arco-btn-primary:hover {
+  background: var(--system-blue-hover) !important;
+}
+
+/* 边框按钮 */
+.arco-btn-outline {
+  background: transparent !important;
+  border: 1px solid var(--system-blue) !important;
+  color: var(--system-blue) !important;
+}
+
+.arco-btn-outline:hover {
+  background: var(--fill-tertiary) !important;
+}
+
+/* 次要按钮 */
+.arco-btn-secondary {
+  background: var(--fill-secondary) !important;
+  border: none !important;
+  color: var(--text-primary) !important;
+}
+
+.arco-btn-secondary:hover {
+  background: var(--fill-primary) !important;
+}
+
+/* 小按钮 */
+.arco-btn-small {
+  padding: 5px 10px !important;
+  font-size: 12px;
+}
+
+/* ========================================
+   标签
+   ======================================== */
+
 .arco-tag {
+  border-radius: var(--radius-sm) !important;
+  font-weight: 500 !important;
+  font-size: 12px !important;
+  padding: 3px 8px !important;
+  border: none !important;
+}
+
+/* 当前 - 蓝色 */
+.arco-tag-arcoblue,
+.arco-tag.arco-tag-arcoblue {
+  background: #007aff !important;
+  color: #ffffff !important;
+}
+
+/* 最快 - 绿色 */
+.arco-tag-gold,
+.arco-tag.arco-tag-gold {
+  background: #34c759 !important;
+  color: #ffffff !important;
+}
+
+/* 快速 - 绿色 */
+.arco-tag-green,
+.arco-tag.arco-tag-green {
+  background: #34c759 !important;
+  color: #ffffff !important;
+}
+
+/* 中等 - 橙色 */
+.arco-tag-orange,
+.arco-tag.arco-tag-orange {
+  background: #ff9500 !important;
+  color: #ffffff !important;
+}
+
+/* 超时 - 红色 */
+.arco-tag-red,
+.arco-tag.arco-tag-red {
+  background: #ff3b30 !important;
+  color: #ffffff !important;
+}
+
+/* 默认标签 */
+.arco-tag-default,
+.arco-tag:not([class*="arco-tag-arcoblue"]):not([class*="arco-tag-gold"]):not([class*="arco-tag-green"]):not([class*="arco-tag-orange"]):not([class*="arco-tag-red"]) {
+  background: rgba(120, 120, 128, 0.16) !important;
+  color: #1d1d1f !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .arco-tag-default,
+  .arco-tag:not([class*="arco-tag-arcoblue"]):not([class*="arco-tag-gold"]):not([class*="arco-tag-green"]):not([class*="arco-tag-orange"]):not([class*="arco-tag-red"]) {
+    background: rgba(120, 120, 128, 0.32) !important;
+    color: #f5f5f7 !important;
+  }
+}
+
+.arco-tag-large {
+  font-size: 13px !important;
+  padding: 4px 10px !important;
+}
+
+/* ========================================
+   Radio 切换组 - iOS 分段控件风格
+   ======================================== */
+
+.arco-radio-group-type-button {
+  background: var(--fill-secondary);
+  border-radius: var(--radius-md);
+  padding: 2px;
+}
+
+.arco-radio-group-type-button .arco-radio-button {
+  border: none !important;
+  background: transparent !important;
+  color: var(--text-primary) !important;
+  border-radius: var(--radius-sm) !important;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 12px !important;
+  margin: 0 !important;
   transition: all 0.2s ease;
 }
 
+.arco-radio-group-type-button .arco-radio-button:hover {
+  background: var(--fill-tertiary) !important;
+}
+
+.arco-radio-group-type-button .arco-radio-button.arco-radio-checked {
+  background: var(--bg-tertiary) !important;
+  color: var(--text-primary) !important;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ========================================
+   文字与其他
+   ======================================== */
+
+.arco-typography {
+  color: var(--text-primary);
+}
+
+.arco-typography-secondary {
+  color: var(--text-secondary) !important;
+}
+
+.arco-divider {
+  border-color: var(--separator);
+  margin: 12px 0;
+}
+
+.arco-spin-loading-icon {
+  color: var(--system-blue) !important;
+}
+
+/* 子卡片 */
+.arco-card-header-title {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.arco-card-size-small {
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  border: none;
+}
+
+.arco-card-size-small .arco-card-header {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--separator);
+}
+
+.arco-card-size-small .arco-card-body {
+  padding: 10px 12px;
+}
+
+/* ========================================
+   动画
+   ======================================== */
+
 .mirror-card {
-  animation: fadeIn 0.3s ease;
+  animation: fadeIn 0.25s ease;
 }
 
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* 平滑过渡 - 主题切换时 */
+* {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.2s ease;
+}
+
+.arco-btn,
+.arco-tag {
+  transition: all 0.15s ease;
+}
+
+/* ========================================
+   版本管理区块
+   ======================================== */
+
+.version-manager-bar {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  background: #e8f4ff;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 122, 255, 0.2);
+}
+
+@media (prefers-color-scheme: dark) {
+  .version-manager-bar {
+    background: rgba(10, 132, 255, 0.15);
+    border: 1px solid rgba(10, 132, 255, 0.3);
+  }
+}
+
+.version-manager-bar .arco-space {
+  flex-wrap: wrap;
+}
+
+.version-manager-bar .arco-typography {
+  font-size: 12px;
+}
+
+.version-manager-bar .arco-select {
+  min-width: 140px;
+}
+
+.version-manager-bar .arco-select-view {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .version-manager-bar .arco-select-view {
+    background: #2c2c2e !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
+}
+
+.version-manager-bar .arco-tag-cyan {
+  background: #007aff !important;
+  color: #ffffff !important;
+}
+
+/* Alert 警告样式 */
+.arco-alert-warning {
+  background: rgba(255, 149, 0, 0.1) !important;
+  border: 1px solid rgba(255, 149, 0, 0.3) !important;
+}
+
+.arco-alert-warning .arco-alert-content {
+  color: #1d1d1f !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .arco-alert-warning .arco-alert-content {
+    color: #f5f5f7 !important;
+  }
+}
+
+/* ========================================
+   工具选择器
+   ======================================== */
+
+.tool-selector {
+  display: flex;
+  gap: 6px;
+  margin-left: 12px;
+}
+
+.tool-selector .arco-btn {
+  padding: 4px 10px !important;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.tool-selector .tool-disabled {
+  opacity: 0.4;
+  cursor: not-allowed !important;
+}
+
+.tool-selector .tool-disabled:hover {
+  background: var(--fill-secondary) !important;
+}
+
+/* ========================================
+   工具信息栏
+   ======================================== */
+
+.tool-info-bar {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+.tool-info-bar .arco-space {
+  flex-wrap: wrap;
+}
+
+.tool-info-bar .arco-typography {
+  font-size: 12px;
+}
+
+.tool-info-bar .arco-divider-vertical {
+  margin: 0 8px;
+  height: 14px;
+  border-color: var(--separator);
+}
+
+/* ========================================
+   侧边栏系统信息
+   ======================================== */
+
+.system-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 10px 12px;
+  border-top: 1px solid var(--separator);
+  background: var(--bg-secondary);
+}
+
+.app-sider {
+  position: relative;
 }

@@ -18,6 +18,17 @@ fn main() {
             restore_default,
             apply_fastest_mirror,
             sync_java_mirrors,
+            get_system_info,
+            get_tool_info,
+            get_all_tools_info,
+            get_version_manager_info,
+            switch_version,
+            install_tool,
+            sync_java_home,
+            check_version_update,
+            check_all_updates,
+            check_tool_conflict,
+            check_all_conflicts,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

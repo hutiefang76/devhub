@@ -3,6 +3,64 @@ use crate::types::Mirror;
 use crate::utils::benchmark_mirrors;
 use serde::{Deserialize, Serialize};
 use std::process::Command;
+use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+// 全局日志存储
+lazy_static::lazy_static! {
+    static ref OPERATION_LOGS: Arc<Mutex<Vec<LogEntry>>> = Arc::new(Mutex::new(Vec::new()));
+    static ref TOOL_INFO_CACHE: Arc<Mutex<HashMap<String, (ToolInfo, u64)>>> = Arc::new(Mutex::new(HashMap::new()));
+}
+
+const CACHE_TTL_SECS: u64 = 300; // 5分钟缓存
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogEntry {
+    pub timestamp: u64,
+    pub level: String,      // "info", "warn", "error", "debug"
+    pub operation: String,  // "test_speed", "apply_mirror", "install", etc.
+    pub message: String,
+}
+
+fn add_log(level: &str, operation: &str, message: &str) {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+
+    let entry = LogEntry {
+        timestamp,
+        level: level.to_string(),
+        operation: operation.to_string(),
+        message: message.to_string(),
+    };
+
+    if let Ok(mut logs) = OPERATION_LOGS.lock() {
+        logs.push(entry);
+        // 保留最近1000条日志
+        if logs.len() > 1000 {
+            logs.drain(0..500);
+        }
+    }
+}
+
+#[tauri::command]
+pub fn get_logs(limit: Option<usize>) -> Vec<LogEntry> {
+    let limit = limit.unwrap_or(100);
+    if let Ok(logs) = OPERATION_LOGS.lock() {
+        logs.iter().rev().take(limit).cloned().collect()
+    } else {
+        vec![]
+    }
+}
+
+#[tauri::command]
+pub fn clear_logs() {
+    if let Ok(mut logs) = OPERATION_LOGS.lock() {
+        logs.clear();
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemInfo {
@@ -73,15 +131,32 @@ pub async fn get_all_status() -> Vec<ToolStatus> {
 
 #[tauri::command]
 pub fn list_mirrors(name: String) -> Result<Vec<Mirror>, String> {
+    add_log("info", "list_mirrors", &format!("获取 {} 镜像源列表", name));
     let manager = get_manager(&name).map_err(|e| e.to_string())?;
-    Ok(manager.list_candidates())
+    let mirrors = manager.list_candidates();
+    add_log("info", "list_mirrors", &format!("找到 {} 个镜像源", mirrors.len()));
+    Ok(mirrors)
 }
 
 #[tauri::command]
 pub async fn test_mirrors(name: String) -> Result<Vec<SpeedTestResult>, String> {
+    add_log("info", "test_mirrors", &format!("开始测速 {} 的镜像源", name));
     let manager = get_manager(&name).map_err(|e| e.to_string())?;
     let mirrors = manager.list_candidates();
+
+    for m in &mirrors {
+        add_log("debug", "test_mirrors", &format!("测试: {} ({})", m.name, m.url));
+    }
+
     let results = benchmark_mirrors(mirrors).await;
+
+    for r in &results {
+        if r.latency_ms == u64::MAX {
+            add_log("warn", "test_mirrors", &format!("{}: 超时", r.mirror.name));
+        } else {
+            add_log("info", "test_mirrors", &format!("{}: {}ms", r.mirror.name, r.latency_ms));
+        }
+    }
 
     Ok(results.into_iter().map(|r| SpeedTestResult {
         name: r.mirror.name,
@@ -93,6 +168,7 @@ pub async fn test_mirrors(name: String) -> Result<Vec<SpeedTestResult>, String> 
 
 #[tauri::command]
 pub async fn test_single_mirror(url: String) -> Result<u64, String> {
+    add_log("debug", "test_single_mirror", &format!("测试单个镜像: {}", url));
     let mirror = Mirror::new("test", &url);
     let results = benchmark_mirrors(vec![mirror]).await;
     if let Some(r) = results.first() {
@@ -108,12 +184,25 @@ pub async fn test_single_mirror(url: String) -> Result<u64, String> {
 
 #[tauri::command]
 pub async fn apply_mirror(name: String, mirror: Mirror) -> Result<(), String> {
+    add_log("info", "apply_mirror", &format!("切换 {} 到 {} ({})", name, mirror.name, mirror.url));
     let manager = get_manager(&name).map_err(|e| e.to_string())?;
-    manager.set_source(&mirror).await.map_err(|e| e.to_string())
+    manager.set_source(&mirror).await.map_err(|e| {
+        add_log("error", "apply_mirror", &format!("切换失败: {}", e));
+        e.to_string()
+    })?;
+    add_log("info", "apply_mirror", &format!("{} 已切换到 {}", name, mirror.name));
+
+    // 清除缓存
+    if let Ok(mut cache) = TOOL_INFO_CACHE.lock() {
+        cache.remove(&name);
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn restore_default(name: String) -> Result<(), String> {
+    add_log("info", "restore_default", &format!("恢复 {} 默认配置", name));
     let manager = get_manager(&name).map_err(|e| e.to_string())?;
     manager.restore().await.map_err(|e| e.to_string())
 }
@@ -284,6 +373,23 @@ fn get_install_path(tool: &str) -> Option<String> {
 
 #[tauri::command]
 pub fn get_tool_info(name: String) -> ToolInfo {
+    add_log("debug", "get_tool_info", &format!("获取工具信息: {}", name));
+
+    // 检查缓存
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+
+    if let Ok(cache) = TOOL_INFO_CACHE.lock() {
+        if let Some((info, cached_time)) = cache.get(&name) {
+            if now - cached_time < CACHE_TTL_SECS {
+                add_log("debug", "get_tool_info", &format!("{} 使用缓存", name));
+                return info.clone();
+            }
+        }
+    }
+
     let os = if cfg!(target_os = "macos") {
         "macos"
     } else if cfg!(target_os = "linux") {
@@ -308,6 +414,7 @@ pub fn get_tool_info(name: String) -> ToolInfo {
 
     // 检测版本
     let version = if let Some((cmd, args)) = get_version_command(&name) {
+        add_log("debug", "get_tool_info", &format!("执行: {} {:?}", cmd, args));
         Command::new(cmd)
             .args(args)
             .output()
@@ -315,7 +422,6 @@ pub fn get_tool_info(name: String) -> ToolInfo {
             .and_then(|o| {
                 if o.status.success() {
                     let v = String::from_utf8_lossy(&o.stdout).trim().to_string();
-                    // 提取版本号
                     Some(extract_version(&v))
                 } else {
                     None
@@ -329,13 +435,33 @@ pub fn get_tool_info(name: String) -> ToolInfo {
     let install_path = if installed { get_install_path(&name) } else { None };
     let config_path = get_config_path(&name);
 
-    ToolInfo {
-        name,
+    let info = ToolInfo {
+        name: name.clone(),
         installed,
         version,
         install_path,
         config_path,
         supported_on_current_os: supported,
+    };
+
+    // 更新缓存
+    if let Ok(mut cache) = TOOL_INFO_CACHE.lock() {
+        cache.insert(name, (info.clone(), now));
+    }
+
+    info
+}
+
+#[tauri::command]
+pub fn invalidate_tool_cache(name: Option<String>) {
+    if let Ok(mut cache) = TOOL_INFO_CACHE.lock() {
+        if let Some(tool_name) = name {
+            cache.remove(&tool_name);
+            add_log("debug", "cache", &format!("清除 {} 缓存", tool_name));
+        } else {
+            cache.clear();
+            add_log("debug", "cache", "清除所有工具缓存");
+        }
     }
 }
 

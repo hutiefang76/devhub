@@ -31,6 +31,9 @@ fn main() {
             check_all_conflicts,
             uninstall_from_source,
             install_tool_async,
+            get_logs,
+            clear_logs,
+            invalidate_tool_cache,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

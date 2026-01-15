@@ -28,6 +28,10 @@ import {
   IconCopy,
   IconArrowUp,
   IconExclamationCircle,
+  IconBook,
+  IconDelete,
+  IconDown,
+  IconUp,
 } from '@arco-design/web-react/icon'
 import '@arco-design/web-react/dist/css/arco.css'
 import './App.css'
@@ -105,6 +109,13 @@ interface ConflictInfo {
   warning_message: string | null
 }
 
+interface LogEntry {
+  timestamp: number
+  level: string      // "info", "warn", "error", "debug"
+  operation: string  // "test_speed", "apply_mirror", "install", etc.
+  message: string
+}
+
 type TabKey = 'python' | 'javascript' | 'rust' | 'java' | 'go' | 'docker' | 'system'
 
 const TOOL_MAP: Record<TabKey, string[]> = {
@@ -172,6 +183,8 @@ function App() {
   const [switchingVersion, setSwitchingVersion] = useState(false)
   const [versionUpdate, setVersionUpdate] = useState<VersionUpdateInfo | null>(null)
   const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null)
+  const [logs, setLogs] = useState<LogEntry[]>([])
+  const [showLogs, setShowLogs] = useState(false)
 
   // 只加载系统信息（不加载所有工具信息，改为懒加载）
   useEffect(() => {
@@ -196,6 +209,25 @@ function App() {
   useEffect(() => {
     loadToolData()
   }, [currentTool])
+
+  const loadLogs = async () => {
+    try {
+      const logEntries = await invoke<LogEntry[]>('get_logs', { limit: 100 })
+      setLogs(logEntries)
+    } catch (error) {
+      console.error('Failed to load logs:', error)
+    }
+  }
+
+  const clearLogs = async () => {
+    try {
+      await invoke('clear_logs')
+      setLogs([])
+      Message.success('日志已清空')
+    } catch (error) {
+      Message.error(`清空日志失败: ${error}`)
+    }
+  }
 
   const loadToolData = async () => {
     if (!currentTool) return
@@ -253,8 +285,10 @@ function App() {
       setSpeedResults(resultMap)
       saveSpeedResults(currentTool, results)
       Message.success('测速完成')
+      loadLogs()
     } catch (error) {
       Message.error(`测速失败: ${error}`)
+      loadLogs()
     } finally {
       setTesting(false)
     }
@@ -267,8 +301,10 @@ function App() {
       Message.success(`已切换到 ${mirror.name}`)
       const status = await invoke<ToolStatus>('get_tool_status', { name: currentTool })
       setCurrentStatus(status)
+      loadLogs()
     } catch (error) {
       Message.error(`切换失败: ${error}`)
+      loadLogs()
     } finally {
       setApplying(null)
     }
@@ -280,8 +316,10 @@ function App() {
       Message.success('已恢复默认配置')
       const status = await invoke<ToolStatus>('get_tool_status', { name: currentTool })
       setCurrentStatus(status)
+      loadLogs()
     } catch (error) {
       Message.error(`恢复失败: ${error}`)
+      loadLogs()
     }
   }
 
@@ -292,8 +330,10 @@ function App() {
       Message.success(`已切换到最快镜像: ${fastest.name}`)
       const status = await invoke<ToolStatus>('get_tool_status', { name: currentTool })
       setCurrentStatus(status)
+      loadLogs()
     } catch (error) {
       Message.error(`操作失败: ${error}`)
+      loadLogs()
     } finally {
       setTesting(false)
     }
@@ -327,6 +367,7 @@ function App() {
 
   const handleInstallTool = async (tool: string) => {
     Message.loading({ content: `正在安装 ${tool}...`, duration: 0, id: 'install' })
+    setShowLogs(true) // 安装时自动展开日志面板
     try {
       // 使用异步安装避免 UI 卡顿
       const result = await invoke<string>('install_tool_async', { name: tool })
@@ -339,8 +380,10 @@ function App() {
         return newMap
       })
       loadToolData()
+      loadLogs()
     } catch (error) {
       Message.error({ content: `安装失败: ${error}`, id: 'install' })
+      loadLogs()
     }
   }
 
@@ -779,6 +822,74 @@ function App() {
             </Card>
           )}
         </Spin>
+
+        {/* 操作日志面板 */}
+        <div className="log-panel">
+          <div
+            className="log-panel-header"
+            onClick={() => {
+              if (!showLogs) loadLogs()
+              setShowLogs(!showLogs)
+            }}
+          >
+            <Space>
+              <IconBook />
+              <Text bold>操作日志</Text>
+              {logs.length > 0 && <Tag size="small" color="arcoblue">{logs.length}</Tag>}
+            </Space>
+            <Space>
+              {showLogs && (
+                <Button
+                  size="mini"
+                  type="text"
+                  icon={<IconDelete />}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    clearLogs()
+                  }}
+                >
+                  清空
+                </Button>
+              )}
+              {showLogs ? <IconUp /> : <IconDown />}
+            </Space>
+          </div>
+          {showLogs && (
+            <div className="log-panel-content">
+              {logs.length === 0 ? (
+                <div className="log-empty">
+                  <Text type="secondary">暂无操作日志</Text>
+                </div>
+              ) : (
+                <div className="log-list">
+                  {logs.map((log, index) => (
+                    <div key={index} className={`log-entry log-${log.level}`}>
+                      <span className="log-time">
+                        {new Date(log.timestamp).toLocaleTimeString('zh-CN', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit'
+                        })}
+                      </span>
+                      <Tag
+                        size="small"
+                        color={
+                          log.level === 'error' ? 'red' :
+                          log.level === 'warn' ? 'orange' :
+                          log.level === 'info' ? 'blue' : 'gray'
+                        }
+                      >
+                        {log.level}
+                      </Tag>
+                      <span className="log-operation">[{log.operation}]</span>
+                      <span className="log-message">{log.message}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </Content>
     </Layout>
   )

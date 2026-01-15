@@ -700,3 +700,105 @@ html, body, #root {
 .app-sider {
   position: relative;
 }
+
+/* ========================================
+   操作日志面板
+   ======================================== */
+
+.log-panel {
+  margin-top: 16px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.log-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  cursor: pointer;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--separator);
+  transition: background 0.15s ease;
+}
+
+.log-panel-header:hover {
+  background: var(--fill-tertiary);
+}
+
+.log-panel-header .arco-typography {
+  font-size: 13px;
+}
+
+.log-panel-header .arco-icon {
+  color: var(--text-secondary);
+}
+
+.log-panel-content {
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--bg-tertiary);
+}
+
+.log-empty {
+  padding: 24px;
+  text-align: center;
+}
+
+.log-list {
+  padding: 8px 0;
+}
+
+.log-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+  border-bottom: 1px solid var(--separator);
+}
+
+.log-entry:last-child {
+  border-bottom: none;
+}
+
+.log-time {
+  color: var(--text-secondary);
+  min-width: 70px;
+}
+
+.log-operation {
+  color: var(--system-purple);
+  min-width: 100px;
+}
+
+.log-message {
+  color: var(--text-primary);
+  flex: 1;
+  word-break: break-all;
+}
+
+.log-entry.log-error .log-message {
+  color: var(--system-red);
+}
+
+.log-entry.log-warn .log-message {
+  color: var(--system-orange);
+}
+
+.log-entry.log-debug {
+  opacity: 0.7;
+}
+
+@media (prefers-color-scheme: dark) {
+  .log-panel-content {
+    background: #1c1c1e;
+  }
+
+  .log-panel-header {
+    background: #2c2c2e;
+  }
+}
